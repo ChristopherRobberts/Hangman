@@ -40,6 +40,8 @@ public class CommandLineHandler implements Runnable {
                     controller.connect(host, port, manual());
                     break;
                 case DISCONNECT:
+                    controller.disconnect();
+                    waitingForInput = false;
                     break;
                 case UNKNOWN:
                     outPutHandler.handleMessage("wrong or too many commands\n" + manual());

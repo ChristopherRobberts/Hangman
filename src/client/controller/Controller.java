@@ -24,7 +24,7 @@ public class Controller {
     public void startGame() {
         CompletableFuture.runAsync(() -> {
             connection.startGame();
-        }).thenRun(() -> outputHandler.handleMessage("Hangman has begun"));
+        });
     }
 
     public void guess(String guess) {
@@ -34,6 +34,8 @@ public class Controller {
     }
 
     public void disconnect() {
-
+        CompletableFuture.runAsync(() -> {
+            connection.disconnect();
+        }).thenRun(() -> outputHandler.handleMessage("disconnected"));
     }
 }

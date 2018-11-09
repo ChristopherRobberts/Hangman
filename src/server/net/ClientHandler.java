@@ -6,15 +6,19 @@ import server.controller.Controller;
 
 import java.io.*;
 import java.net.Socket;
+import java.nio.charset.Charset;
 
 public class ClientHandler implements Runnable {
+    private static final String MESSAGE_DELIMITER = ":";
+    private GameServer gameServer;
     private Socket clientSocket;
     private BufferedReader fromClient;
     private PrintWriter toClient;
-    private boolean connected;
+    private boolean connected = false;
     private Controller controller = new Controller();
 
-    ClientHandler(Socket clientSocket) {
+    ClientHandler(GameServer gameServer, Socket clientSocket) {
+        this.gameServer = gameServer;
         this.clientSocket = clientSocket;
         this.connected = true;
     }
@@ -34,7 +38,7 @@ public class ClientHandler implements Runnable {
                 CommandParser command = new CommandParser(cmd);
                 command.handleCommand();
             } catch (IOException e) {
-                e.printStackTrace();
+                connected = false;
             }
         }
     }
@@ -48,9 +52,19 @@ public class ClientHandler implements Runnable {
     private void sendMessage(String message, FromServer type) {
         StringBuilder builder = new StringBuilder();
         builder.append(type);
-        builder.append(":");
+        builder.append(MESSAGE_DELIMITER);
         builder.append(message);
-        toClient.println(builder.toString());
+
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append(calculateByteSize(builder.toString()));
+        stringBuilder.append(MESSAGE_DELIMITER);
+        stringBuilder.append(builder);
+        toClient.println(stringBuilder.toString());
+    }
+
+    private int calculateByteSize(String s) {
+        byte[] bytes = s.getBytes(Charset.forName("UTF-8"));
+        return bytes.length;
     }
 
     private class CommandParser {
@@ -75,8 +89,17 @@ public class ClientHandler implements Runnable {
                         controller.processGuess(this.commandArgs);
                         sendGameState();
                     } else {
-                        toClient.println(FromServer.NOT_INITIALIZED);
+                        int messageSize = calculateByteSize(FromServer.NOT_INITIALIZED.toString());
+                        toClient.println(messageSize + MESSAGE_DELIMITER + FromServer.NOT_INITIALIZED);
                     }
+                    break;
+                case DISCONNECT:
+                    try {
+                        clientSocket.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    connected = false;
                     break;
                 default:
                     break;

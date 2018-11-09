@@ -18,7 +18,6 @@ public class GameServer {
         try {
             ServerSocket serverSocket = new ServerSocket(application_portNr);
             while(true) {
-                //listen until a client has reached out to server
                 Socket clientSocket = serverSocket.accept();
                 serveClient(clientSocket);
             }
@@ -28,9 +27,9 @@ public class GameServer {
     }
 
     private void serveClient(Socket socket) {
-        ClientHandler clientHandler = new ClientHandler(socket);
+
+        ClientHandler clientHandler = new ClientHandler(this, socket);
         Thread dedicatedThread = new Thread(clientHandler);
         dedicatedThread.start();
     }
-
 }

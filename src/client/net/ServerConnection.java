@@ -36,38 +36,71 @@ public class ServerConnection {
         toServer.println(msg);
     }
 
+    public void disconnect() {
+        toServer.println(String.valueOf(FromClient.DISCONNECT));
+    }
+
     private class Listener implements Runnable {
         private OutputHandler outputHandler;
+        private ServerMessageParser serverMessageParser;
 
         private Listener(OutputHandler outputHandler) {
             this.outputHandler = outputHandler;
         }
 
         public void run() {
-            try {
-                while (true) {
-                    String message = fromServer.readLine();
-                    ServerMessageParser serverMessageParser = new ServerMessageParser(message);
-                    serverMessageParser.handleMessage();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
+            while (true) {
+                this.serverMessageParser = new ServerMessageParser();
+                serverMessageParser.handleMessage();
             }
         }
 
         private class ServerMessageParser {
             private FromServer label;
             private String content;
+            private int msgByteLen;
 
-            private ServerMessageParser(String entireCommand) {
-                String[] messageParts = entireCommand.split(":");
+            private ServerMessageParser() {
+                StringBuilder messageLen = new StringBuilder();
+                StringBuilder messageLabel = new StringBuilder();
+                StringBuilder messageContent = new StringBuilder();
+                int counter = 0;
+                char tmp;
+                try {
+                    while ((tmp = (char) fromServer.read()) != ':') {
+                        messageLen.append(tmp);
+                    }
 
-                this.content = (messageParts.length < 2) ? "" : messageParts[1];
-                this.label = FromServer.valueOf(messageParts[0]);
+                    String msglen = messageLen.toString().replaceAll("\n", "");
+                    this.msgByteLen = Integer.parseInt(msglen);
+
+                    for (int i = 0; i < msgByteLen; i++) {
+                        if ((tmp = (char) fromServer.read()) != ':') {
+                            messageLabel.append(tmp);
+                            counter++;
+                        } else {
+                            counter++;
+                            break;
+                        }
+                    }
+
+                    int remainingBytes = msgByteLen - counter;
+                    for (int i = 0; i < remainingBytes; i++) {
+                        if ((tmp = (char) fromServer.read()) != ':') {
+                            messageContent.append(tmp);
+                        }
+                    }
+
+                    this.label = FromServer.valueOf(messageLabel.toString());
+                    this.content = messageContent.toString();
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
 
             private void handleMessage() {
-                switch(this.label) {
+                switch (this.label) {
                     case WORD:
                         outputHandler.handleMessage("Word: " + this.content);
                         break;

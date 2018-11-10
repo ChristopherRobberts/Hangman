@@ -1,6 +1,6 @@
 package client.view;
 
-import Common.FromClient;
+import common.FromClient;
 import client.controller.Controller;
 
 import java.util.Scanner;

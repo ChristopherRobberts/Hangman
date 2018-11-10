@@ -1,7 +1,7 @@
 package server.net;
 
-import Common.FromClient;
-import Common.FromServer;
+import common.FromClient;
+import common.FromServer;
 import server.controller.Controller;
 
 import java.io.*;

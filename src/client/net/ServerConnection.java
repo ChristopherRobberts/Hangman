@@ -1,7 +1,7 @@
 package client.net;
 
-import Common.FromClient;
-import Common.FromServer;
+import common.FromClient;
+import common.FromServer;
 
 import java.io.*;
 import java.net.InetSocketAddress;

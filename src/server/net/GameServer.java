@@ -28,7 +28,7 @@ public class GameServer {
 
     private void serveClient(Socket socket) {
 
-        ClientHandler clientHandler = new ClientHandler(this, socket);
+        ClientHandler clientHandler = new ClientHandler(socket);
         Thread dedicatedThread = new Thread(clientHandler);
         dedicatedThread.start();
     }

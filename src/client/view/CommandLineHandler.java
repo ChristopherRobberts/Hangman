@@ -53,13 +53,13 @@ public class CommandLineHandler implements Runnable {
     }
 
     private String manual() {
-        return  "Valid commands: \n"
+        return "Valid commands: \n"
                 + FromClient.START + " - starts a game\n"
                 + FromClient.GUESS + " *LETTER*/*WORD* to guess a letter or a word\n"
                 + FromClient.DISCONNECT + " - disconnects from the game server";
     }
 
-    private class CommandParser{
+    private class CommandParser {
         private FromClient commandType;
         private String commandArgs;
 

@@ -6,10 +6,13 @@ import Common.FromServer;
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.nio.charset.Charset;
 
 public class ServerConnection {
+    private static final char DELIMITER = ':';
     private BufferedReader fromServer;
     private PrintWriter toServer;
+    private boolean listening;
 
     public void connect(String host, int port, OutputHandler outputHandler) {
         try {
@@ -18,6 +21,7 @@ public class ServerConnection {
             socket.connect(new InetSocketAddress(host, port));
             toServer = new PrintWriter(socket.getOutputStream(), autoFlush);
             fromServer = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            listening = true;
             Listener listener = new Listener(outputHandler);
             Thread listeningThread = new Thread(listener);
             listeningThread.start();
@@ -28,16 +32,26 @@ public class ServerConnection {
 
     public void startGame() {
         String msg = String.valueOf(FromClient.START);
-        toServer.println(msg);
+        int header = messageByteSize(msg);
+        toServer.println(header + String.valueOf(DELIMITER) + msg);
     }
 
     public void guess(String guess) {
-        String msg = String.valueOf(FromClient.GUESS) + " " + guess;
-        toServer.println(msg);
+        String msg = String.valueOf(FromClient.GUESS) + DELIMITER + guess;
+        int header = messageByteSize(msg);
+        toServer.println(header + String.valueOf(DELIMITER) + msg);
     }
 
     public void disconnect() {
-        toServer.println(String.valueOf(FromClient.DISCONNECT));
+        this.listening = false;
+        String msg = String.valueOf(FromClient.DISCONNECT);
+        int header = messageByteSize(msg);
+        toServer.println(header + String.valueOf(DELIMITER) + msg);
+    }
+
+    private int messageByteSize(String msg) {
+        byte[] bytes = msg.getBytes(Charset.forName("UTF-8"));
+        return bytes.length;
     }
 
     private class Listener implements Runnable {
@@ -49,7 +63,8 @@ public class ServerConnection {
         }
 
         public void run() {
-            while (true) {
+
+            while (listening) {
                 this.serverMessageParser = new ServerMessageParser();
                 serverMessageParser.handleMessage();
             }
@@ -58,42 +73,28 @@ public class ServerConnection {
         private class ServerMessageParser {
             private FromServer label;
             private String content;
-            private int msgByteLen;
+            private int msgByteSize;
 
             private ServerMessageParser() {
-                StringBuilder messageLen = new StringBuilder();
-                StringBuilder messageLabel = new StringBuilder();
-                StringBuilder messageContent = new StringBuilder();
-                int counter = 0;
+                StringBuilder messageSize = new StringBuilder();
                 char tmp;
                 try {
-                    while ((tmp = (char) fromServer.read()) != ':') {
-                        messageLen.append(tmp);
+                    while ((tmp = (char) fromServer.read()) != DELIMITER) {
+                        messageSize.append(tmp);
                     }
 
-                    String msglen = messageLen.toString().replaceAll("\n", "");
-                    this.msgByteLen = Integer.parseInt(msglen);
+                    String msgSize = messageSize.toString().replaceAll("\n", "");
+                    this.msgByteSize = Integer.parseInt(msgSize);
+                    char[] msg = new char[this.msgByteSize];
 
-                    for (int i = 0; i < msgByteLen; i++) {
-                        if ((tmp = (char) fromServer.read()) != ':') {
-                            messageLabel.append(tmp);
-                            counter++;
-                        } else {
-                            counter++;
-                            break;
-                        }
+                    for (int i = 0; i < this.msgByteSize; i++) {
+                        msg[i] = (char) fromServer.read();
                     }
 
-                    int remainingBytes = msgByteLen - counter;
-                    for (int i = 0; i < remainingBytes; i++) {
-                        if ((tmp = (char) fromServer.read()) != ':') {
-                            messageContent.append(tmp);
-                        }
-                    }
-
-                    this.label = FromServer.valueOf(messageLabel.toString());
-                    this.content = messageContent.toString();
-
+                    String entireMessage = new String(msg);
+                    String[] parts = entireMessage.split(Character.toString(DELIMITER));
+                    this.label = FromServer.valueOf(parts[0]);
+                    this.content = (parts.length > 1) ? parts[1] : "";
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -110,8 +111,11 @@ public class ServerConnection {
                     case SCORE:
                         outputHandler.handleMessage("Your current score: " + this.content);
                         break;
+                    case NO_VALUE:
+                        outputHandler.handleMessage("Remaining failed attempts: no value");
+                        break;
                     case NOT_INITIALIZED:
-                        outputHandler.handleMessage("you must start the game before guessing dummy");
+                        outputHandler.handleMessage("you must start the game before guessing!");
                         break;
                     default:
                         outputHandler.handleMessage("server says what?");

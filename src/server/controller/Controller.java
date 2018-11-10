@@ -22,6 +22,8 @@ public class Controller {
         return this.game.isOngoing();
     }
 
+    public boolean gameIsWon() { return this.game.isWon(); }
+
     public String getScoreState() {
         return Integer.toString(this.game.getScoreState());
     }

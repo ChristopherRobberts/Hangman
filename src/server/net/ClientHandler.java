@@ -9,16 +9,14 @@ import java.net.Socket;
 import java.nio.charset.Charset;
 
 public class ClientHandler implements Runnable {
-    private static final String MESSAGE_DELIMITER = ":";
-    private GameServer gameServer;
+    private static final char DELIMITER = ':';
     private Socket clientSocket;
     private BufferedReader fromClient;
     private PrintWriter toClient;
-    private boolean connected = false;
+    private boolean connected;
     private Controller controller = new Controller();
 
-    ClientHandler(GameServer gameServer, Socket clientSocket) {
-        this.gameServer = gameServer;
+    ClientHandler(Socket clientSocket) {
         this.clientSocket = clientSocket;
         this.connected = true;
     }
@@ -33,33 +31,26 @@ public class ClientHandler implements Runnable {
         }
 
         while (connected) {
-            try {
-                String cmd = fromClient.readLine();
-                CommandParser command = new CommandParser(cmd);
-                command.handleCommand();
-            } catch (IOException e) {
-                connected = false;
-            }
+            ClientMessageParser command = new ClientMessageParser();
+            command.handleCommand();
         }
     }
 
     private void sendGameState() {
         sendMessage(controller.getWordState(), FromServer.WORD);
-        sendMessage(controller.getAttemptsState(), FromServer.ATTEMPTS);
+        if (controller.gameIsWon()) {
+            sendMessage("", FromServer.NO_VALUE);
+        } else {
+            sendMessage(controller.getAttemptsState(), FromServer.ATTEMPTS);
+        }
         sendMessage(controller.getScoreState(), FromServer.SCORE);
     }
 
     private void sendMessage(String message, FromServer type) {
-        StringBuilder builder = new StringBuilder();
-        builder.append(type);
-        builder.append(MESSAGE_DELIMITER);
-        builder.append(message);
-
-        StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append(calculateByteSize(builder.toString()));
-        stringBuilder.append(MESSAGE_DELIMITER);
-        stringBuilder.append(builder);
-        toClient.println(stringBuilder.toString());
+        String msg = type + String.valueOf(DELIMITER) + message;
+        int header = calculateByteSize(msg);
+        String toSend = header + String.valueOf(DELIMITER) + msg;
+        toClient.println(toSend);
     }
 
     private int calculateByteSize(String s) {
@@ -67,30 +58,51 @@ public class ClientHandler implements Runnable {
         return bytes.length;
     }
 
-    private class CommandParser {
-        private FromClient commandType;
-        private String commandArgs;
+    private class ClientMessageParser {
+        private FromClient messageType;
+        private String messageContent;
+        private int msgByteSize;
 
-        CommandParser(String command) {
-            String[] cmd = command.split(" ");
-            this.commandType = FromClient.valueOf(cmd[0]);
-            if (cmd.length > 1)
-                this.commandArgs = cmd[1];
+        private ClientMessageParser() {
+            StringBuilder messageSize = new StringBuilder();
+            char tmp;
+            try {
+                while ((tmp = (char) fromClient.read()) != ':') {
+                    messageSize.append(tmp);
+                }
+
+                String msgSize = messageSize.toString().replaceAll("\n", "");
+                this.msgByteSize = Integer.parseInt(msgSize);
+                char[] msg = new char[this.msgByteSize];
+
+                for (int i = 0; i < this.msgByteSize; i++) {
+                    msg[i] = (char) fromClient.read();
+                }
+
+                String entireMessage = new String(msg);
+                String[] parts = entireMessage.split(String.valueOf(DELIMITER));
+                this.messageType = FromClient.valueOf(parts[0]);
+                this.messageContent = (parts.length > 1) ? parts[1] : "";
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
 
         private void handleCommand() {
-            switch (this.commandType) {
+            switch (this.messageType) {
                 case START:
                     controller.startGame();
                     sendGameState();
                     break;
                 case GUESS:
                     if (controller.gameIsOngoing()) {
-                        controller.processGuess(this.commandArgs);
+                        controller.processGuess(this.messageContent);
                         sendGameState();
                     } else {
                         int messageSize = calculateByteSize(FromServer.NOT_INITIALIZED.toString());
-                        toClient.println(messageSize + MESSAGE_DELIMITER + FromServer.NOT_INITIALIZED);
+                        toClient.println(messageSize + String.valueOf(DELIMITER)
+                                + String.valueOf(FromServer.NOT_INITIALIZED));
                     }
                     break;
                 case DISCONNECT:

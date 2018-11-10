@@ -8,11 +8,13 @@ public class Game {
     private char[] unknownWord;
     private char[] knownWord;
     private boolean isOngoing = false;
+    private boolean isWon;
     private int score = 0;
 
     public void startGame() {
         Word wordGenerator = new Word();
         this.isOngoing = true;
+        this.isWon = false;
         this.word = wordGenerator.getWord().toLowerCase();
         this.unknownWord = wordGenerator.getHiddenWord().replaceAll("\\s", "").toCharArray();
         this.knownWord = this.word.toCharArray();
@@ -26,6 +28,7 @@ public class Game {
 
         if (isWord) {
             if (guess.equals(this.word)) {
+                this.isWon = true;
                 this.score++;
                 this.gameState.score++;
                 this.gameState.wordProgress = formatString(this.knownWord);
@@ -46,6 +49,7 @@ public class Game {
                 this.gameState.remainingAttempts--;
 
             if (Arrays.equals(this.knownWord, this.unknownWord)){
+                this.isWon = true;
                 this.score++;
                 this.gameState.score++;
                 this.isOngoing = false;
@@ -62,6 +66,8 @@ public class Game {
     public boolean isOngoing() {
         return this.isOngoing;
     }
+
+    public boolean isWon() { return this.isWon; }
 
     public int getScoreState() {
         return this.gameState.score;

@@ -72,10 +72,13 @@ public class ServerConnection {
 
         private class ServerMessageParser {
             private FromServer label;
-            private String content;
             private int msgByteSize;
 
             private ServerMessageParser() {
+
+            }
+
+            private void handleMessage() {
                 StringBuilder messageSize = new StringBuilder();
                 char tmp;
                 try {
@@ -83,7 +86,7 @@ public class ServerConnection {
                         messageSize.append(tmp);
                     }
 
-                    String msgSize = messageSize.toString().replaceAll("\n", "");
+                    String msgSize = messageSize.toString().replaceAll("\\s", "");
                     this.msgByteSize = Integer.parseInt(msgSize);
                     char[] msg = new char[this.msgByteSize];
 
@@ -94,32 +97,30 @@ public class ServerConnection {
                     String entireMessage = new String(msg);
                     String[] parts = entireMessage.split(Character.toString(DELIMITER));
                     this.label = FromServer.valueOf(parts[0]);
-                    this.content = (parts.length > 1) ? parts[1] : "";
+                    String content = (parts.length > 1) ? parts[1] : "";
+
+                    switch (this.label) {
+                        case WORD:
+                            outputHandler.handleMessage("Word: " + content);
+                            break;
+                        case ATTEMPTS:
+                            outputHandler.handleMessage("Remaining failed attempts: " + content);
+                            break;
+                        case SCORE:
+                            outputHandler.handleMessage("Your current score: " + content);
+                            break;
+                        case NO_VALUE:
+                            outputHandler.handleMessage("Remaining failed attempts: no value");
+                            break;
+                        case NOT_INITIALIZED:
+                            outputHandler.handleMessage("you must start the game before guessing!");
+                            break;
+                        default:
+                            outputHandler.handleMessage("server says what?");
+                            break;
+                    }
                 } catch (IOException e) {
                     e.printStackTrace();
-                }
-            }
-
-            private void handleMessage() {
-                switch (this.label) {
-                    case WORD:
-                        outputHandler.handleMessage("Word: " + this.content);
-                        break;
-                    case ATTEMPTS:
-                        outputHandler.handleMessage("Remaining failed attempts: " + this.content);
-                        break;
-                    case SCORE:
-                        outputHandler.handleMessage("Your current score: " + this.content);
-                        break;
-                    case NO_VALUE:
-                        outputHandler.handleMessage("Remaining failed attempts: no value");
-                        break;
-                    case NOT_INITIALIZED:
-                        outputHandler.handleMessage("you must start the game before guessing!");
-                        break;
-                    default:
-                        outputHandler.handleMessage("server says what?");
-                        break;
                 }
             }
         }

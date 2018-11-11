@@ -71,7 +71,7 @@ public class ClientHandler implements Runnable {
                     messageSize.append(tmp);
                 }
 
-                String msgSize = messageSize.toString().replaceAll("\n", "");
+                String msgSize = messageSize.toString().replaceAll("\\s", "");
                 this.msgByteSize = Integer.parseInt(msgSize);
                 char[] msg = new char[this.msgByteSize];
 
